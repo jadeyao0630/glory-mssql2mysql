@@ -2,6 +2,7 @@ const express = require('express');
 const app = express();
 const path = require('path');
 const http = require('http');
+const mssql = require('mssql');
 const server = http.createServer(app);
 require('dotenv').config({
     path: path.resolve(
@@ -10,60 +11,64 @@ require('dotenv').config({
     ),
 });
 const { env } = process;
-var mysql=require("mysql");
-var mssql=require("mssql");
-var pool = mysql.createPool({
-    host: env.HOST,
-    user:env.HOST==='192.168.10.241'||env.HOST==='192.168.10.242'?'glory':env.USER,
-    password:env.PASSWORD,
-    database:env.DATABASE,
-    port:env.DB_PORT,
-});
+const DbService = require('./dbService');
+const db= DbService.getDbServiceInstance();
+
 const mssqlConfig = {
-    user: 'sa',
-    password: 'qijiashe6',
-    server: '192.168.10.122',
-    database: 'glory',
+    user: env.MS_USER,
+    password: env.MS_PASSWORD,
+    server: env.MS_HOST,
+    database: env.MS_DATABASE,
     options: {
         encrypt: false,
       //encrypt: true, // for azure
       //trustServerCertificate: true // for self-signed certificates
     }
   };
-var query=function(sql,options,callback){
 
-    pool.getConnection(function(err,conn){
-        if(err){
-            console.log(err);
-            if(callback!=undefined) callback(err,null,null);
-        }else{
-            conn.query(sql,options,function(err,results,fields){
-                //事件驱动回调
-                if(callback!=undefined) callback(err,results,fields);
-            });
-            //释放连接，需要注意的是连接释放需要在此处释放，而不是在查询回调里面释放
-            conn.release();
-        }
-    });
-};
 async function pollDatabaseChanges() {
     try {
+      var table='p_Room';
+      var _lastSyncVersion = await db.getLastUpdatedVersion(table);
+      console.log('_lastSyncVersion',_lastSyncVersion);
       let pool = new mssql.ConnectionPool(mssqlConfig);
       await pool.connect();
-        var table='sales';
-        var _lastSyncVersion=0;
+
+      
       // 示例查询: 替换为实际的变更检测逻辑
-      let result = await pool.request().query(`SELECT CT.* FROM CHANGETABLE(CHANGES dbo.${table}, ${_lastSyncVersion}) AS CT`);
-  
-      // 处理结果...
-      console.log(result);
+      let CURRENT_VERSION = await db.getCurrentUpdatedVersion();
+      
+      console.log('_lastSyncVersion',_lastSyncVersion,CURRENT_VERSION);
+
+
+      if (_lastSyncVersion < CURRENT_VERSION){
+          // 示例查询: 替换为实际的变更检测逻辑
+          //var pks=await GetPrimaryKey(table,pool);
+          //console.log('pks',pks)
+          let result = await pool.request().query(`SELECT CT.* FROM CHANGETABLE(CHANGES dbo.${table}, ${_lastSyncVersion}) AS CT`);
+            
+          // 处理结果...
+          //console.log(result);
+          let index = 0;
+          while(index < result.data.recordset.length){
+            const row = result.data.recordset[index];
+            console.log(row['SYS_CHANGE_OPERATION'],row['RoomGUID']); // Process each row here
+            index++;
+          }
+          
+          _lastSyncVersion=Number(CURRENT_VERSION);
+          db.mysqlExcute("REPLACE INTO sync_version (table_name,last_sync_version) VALUES ('"+table+"',"+_lastSyncVersion+");")
+            .then((res)=>console.log(res));
+          
+      }
+      
   
       // 同步到MySQL...
       //let mysqlConnection = await mysql.createConnection(mysqlConfig);
       // 使用result记录执行MySQL更新
-      // await mysqlConnection.query('INSERT INTO YourMySQLTable ...');
-  
-      //pool.close();
+      //await mysqlConnection.query('SELECT * FROM sync_version WHERE table_name = "'+table+'"');
+      
+      pool.close();
       //mysqlConnection.end();
     } catch (err) {
       console.error('Database polling error:', err);
@@ -73,5 +78,35 @@ async function pollDatabaseChanges() {
 // query('select * from names', (err,results)=>{
 //     console.log(results)
 // });
-
+async function GetPrimaryKey(table,pool){
+  var pks=[];
+  let result = await pool.request().query(`SELECT 
+  kcu.TABLE_NAME,
+  kcu.COLUMN_NAME
+FROM 
+  INFORMATION_SCHEMA.TABLE_CONSTRAINTS tc
+JOIN 
+  INFORMATION_SCHEMA.KEY_COLUMN_USAGE kcu
+  ON tc.CONSTRAINT_NAME = kcu.CONSTRAINT_NAME
+  AND tc.TABLE_SCHEMA = kcu.TABLE_SCHEMA
+  AND tc.TABLE_NAME = kcu.TABLE_NAME
+WHERE 
+  tc.CONSTRAINT_TYPE = 'PRIMARY KEY'
+  AND tc.TABLE_NAME = ${table};`);
+            
+    // 处理结果...
+    console.log(result);
+    let index = 0;
+    while(index < result.recordset.length){
+      const row = result.recordset[index];
+      const columnName=row["COLUMN_NAME"];
+      //console.log(row['SYS_CHANGE_OPERATION'],row['RoomGUID']); // Process each row here
+      console.log('columnName',columnName);
+      pks.push(columnName);
+      index++;
+    }
+    return pks;
+}
 server.listen(env.PORT, () => console.log('app is runing at port: '+env.PORT,'mysql host: '+env.HOST))
+
+
