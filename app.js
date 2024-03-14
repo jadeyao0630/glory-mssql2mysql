@@ -2,37 +2,29 @@ const express = require('express');
 const app = express();
 const path = require('path');
 const http = require('http');
-const mssql = require('mssql');
 const server = http.createServer(app);
-require('dotenv').config({
-    path: path.resolve(
-        __dirname,
-        `./.env`
+const dotenv = require('dotenv');
+const { env } = process;
+dotenv.config({
+  path: path.resolve(
+      __dirname,
+      `./.env${process.env.NODE_ENV ? "."+process.env.NODE_ENV : ""}`
     ),
 });
-const { env } = process;
 const DbService = require('./dbService');
 const db= DbService.getDbServiceInstance();
 
-const mssqlConfig = {
-    user: env.MS_USER,
-    password: env.MS_PASSWORD,
-    server: env.MS_HOST,
-    database: env.MS_DATABASE,
-    options: {
-        encrypt: false,
-      //encrypt: true, // for azure
-      //trustServerCertificate: true // for self-signed certificates
-    }
-  };
+
 
 async function pollDatabaseChanges() {
     try {
+
+      
       var table='p_Room';
       var _lastSyncVersion = await db.getLastUpdatedVersion(table);
       console.log('_lastSyncVersion',_lastSyncVersion);
-      let pool = new mssql.ConnectionPool(mssqlConfig);
-      await pool.connect();
+      //let pool = new mssql.ConnectionPool(mssqlConfig);
+      //await pool.connect();
 
       
       // 示例查询: 替换为实际的变更检测逻辑
@@ -45,7 +37,7 @@ async function pollDatabaseChanges() {
           // 示例查询: 替换为实际的变更检测逻辑
           //var pks=await GetPrimaryKey(table,pool);
           //console.log('pks',pks)
-          let result = await pool.request().query(`SELECT CT.* FROM CHANGETABLE(CHANGES dbo.${table}, ${_lastSyncVersion}) AS CT`);
+          //let result = await pool.request().query(`SELECT CT.* FROM CHANGETABLE(CHANGES dbo.${table}, ${_lastSyncVersion}) AS CT`);
             
           // 处理结果...
           //console.log(result);
@@ -68,7 +60,7 @@ async function pollDatabaseChanges() {
       // 使用result记录执行MySQL更新
       //await mysqlConnection.query('SELECT * FROM sync_version WHERE table_name = "'+table+'"');
       
-      pool.close();
+      //pool.close();
       //mysqlConnection.end();
     } catch (err) {
       console.error('Database polling error:', err);

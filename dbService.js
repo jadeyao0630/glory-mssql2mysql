@@ -12,7 +12,7 @@ class DbService{
             return await new Promise(async(resolve,reject)=>{
                 mysqlQuery(LAST_VERSION_QUERY, (err,results)=>{
                     if (err) reject(new Error(err.message));
-                    //console.log('results',results)
+                    console.log('results',results)
                     if(results.length>0)
                         resolve(Number(results[0]['last_sync_version']));
                     else
@@ -46,27 +46,6 @@ class DbService{
         try{
             const response = await new Promise(async(resolve,reject)=>{
                 mysqlQuery(query, (err,results)=>{
-                    if (err) reject(new Error(err.message));
-                    //console.log('results',results)
-                    resolve(results);
-                });
-            })
-            return {
-                'success':true,
-                'data':response
-            }
-        }catch(error){
-            console.log(error);
-            return {
-                'success':false,
-                'data':error
-            }
-        }
-    }
-    async mssqlExcute(query){
-        try{
-            const response = await new Promise(async(resolve,reject)=>{
-                mssqlQuery(query, (err,results)=>{
                     if (err) reject(new Error(err.message));
                     //console.log('results',results)
                     resolve(results);

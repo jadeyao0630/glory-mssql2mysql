@@ -5,7 +5,7 @@ const { env } = process;
 dotenv.config({
     path: path.resolve(
         __dirname,
-        `./.env${env.NODE_ENV ? "."+env.NODE_ENV : ""}`
+        `./.env${process.env.NODE_ENV ? "."+process.env.NODE_ENV : ""}`
       ),
 });
 const mssqlConfig = {
