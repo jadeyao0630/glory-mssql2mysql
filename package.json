@@ -11,7 +11,7 @@
     "cross-env": "^7.0.3"
   },
   "scripts": {
-    "local": "cross-env NODE_ENV=local node app.js",
-    "glory": "cross-env NODE_ENV=glory node app.js"
+    "local": "cross-env NODE_ENV=local npx nodemon app.js",
+    "glory": "cross-env NODE_ENV=glory npx nodemon app.js"
   }
 }

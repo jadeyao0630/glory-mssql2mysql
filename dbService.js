@@ -12,11 +12,11 @@ class DbService{
             return await new Promise(async(resolve,reject)=>{
                 mysqlQuery(LAST_VERSION_QUERY, (err,results)=>{
                     if (err) reject(new Error(err.message));
-                    console.log('results',results)
+                    //console.log('results',results)
                     if(results.length>0)
                         resolve(Number(results[0]['last_sync_version']));
                     else
-                        resolve(0);
+                        resolve(-1);
                 });
             })
         }catch(error){
@@ -46,15 +46,18 @@ class DbService{
         try{
             const response = await new Promise(async(resolve,reject)=>{
                 mysqlQuery(query, (err,results)=>{
-                    if (err) reject(new Error(err.message));
-                    //console.log('results',results)
-                    resolve(results);
+                    if (err) resolve ({
+                        success:false,
+                        data:err,
+                        query:query,
+                    })
+                    resolve({
+                        success:true,
+                        data:results
+                    });
                 });
             })
-            return {
-                'success':true,
-                'data':response
-            }
+            return response
         }catch(error){
             console.log(error);
             return {
@@ -67,41 +70,51 @@ class DbService{
         try{
             const response = await new Promise(async(resolve,reject)=>{
                 mssqlQuery(query, (err,results)=>{
-                    if (err) reject(new Error(err.message));
+                    if (err) resolve ({
+                        success:false,
+                        data:err,
+                        query:query,
+                    })
                     //console.log('results',results)
-                    resolve(results);
+                    resolve({
+                        success:true,
+                        data:results
+                    });
                 });
             })
-            return {
-                'success':true,
-                'data':response
-            }
+            return response
         }catch(error){
             console.log(error);
             return {
                 'success':false,
-                'data':error
+                'data':error,
+                query:query,
             }
         }
     }
-    async mssqlGet(table){
+    async mssqlGet(query){
         try{
             //const LAST_VERSION_QUERY='SELECT * FROM sync_version WHERE table_name = "'+table+'"';
-            const response =  new Promise(async(resolve,reject)=>{
-                mysqlQuery(LAST_VERSION_QUERY, (err,results)=>{
-                    if (err) reject(new Error(err.message));
-                    resolve(results);
+            const response = await new Promise(async(resolve,reject)=>{
+                mssqlQuery(query, (err,results)=>{
+                    if (err) resolve ({
+                        success:false,
+                        data:err,
+                        query:query,
+                    })
+                    resolve({
+                        success:true,
+                        data:results
+                    });
                 });
             })
-            return {
-                success:true,
-                data:response
-            }
+            return response
         }catch(error){
             console.log(error);
             return {
                 success:false,
-                data:error
+                data:error,
+                query:query,
             }
         }
     }
