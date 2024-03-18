@@ -43,12 +43,13 @@ async function pollDatabaseChanges(table) {
                 const isFrist=_lastSyncVersion===-1
                 if(isFrist){
                   isRunFullSync=true;
-                  Object.keys(tasks).forEach(task=>{
-                    clearInterval(tasks[task]);
-                  })
+                  // Object.keys(tasks).forEach(task=>{
+                  //   clearInterval(tasks[task]);
+                  // })
                   
                   query = `SELECT * FROM dbo.${table}`;
                 }else{
+                  isRunFullSync=false;
                   query = `SELECT T.* FROM CHANGETABLE(CHANGES dbo.${table}, ${_lastSyncVersion}) AS CT JOIN dbo.${table} AS T ON T.${pk} = CT.${pk}`;
                 }
                 // 处理结果...
@@ -58,7 +59,7 @@ async function pollDatabaseChanges(table) {
                   let index = 0;
                   var waitTask=setInterval(async()=>{
                     console.log(table+"---->"+(Math.round(index/result.data.recordset.length*10000)/100)+"%");
-                    //process.stdout.write('\r'+table+"---->"+(Math.round(index/result.data.recordset.length*10000)/100)+"%");
+                    //process.stdout.write('\r'+table+"---->"+(Math.round(index/result.data.recordset.length*10000)/100)+"% "+(index===result.data.recordset.length));
                     if(index===result.data.recordset.length){
                       
                       clearInterval(waitTask);
@@ -176,19 +177,25 @@ const tables=['p_Room','p_project','s_Order','s_Contract','p_Building','cb_Produ
 EnableChangeTracking();
 runTask();
 function runTask(){
-  tables.forEach((table,index)=>{
-    setTimeout(() => {
-      var wait=setInterval(()=>{
-        if(!isRunFullSync){
-          clearInterval(wait)
-          tasks[table]=setInterval(async()=>{
-            
-            await pollDatabaseChanges(table);
-          }, 1000);
-        }
-      })
-      
-    }, index*1000);
+  tables.forEach(async(table,index)=>{
+    //setTimeout(async() => {
+      // var wait=await setInterval(async()=>{
+      //   //console.log(table,isRunFullSync)
+      //   if(!isRunFullSync){
+      //     isRunFullSync=true;
+
+      //     clearInterval(wait)
+          
+          
+      //   }
+      // })
+      //var isDone=await pollDatabaseChanges(table);
+            if(await pollDatabaseChanges(table)){
+              tasks[table]=setInterval(async()=>{
+                await pollDatabaseChanges(table);
+              }, 1000);
+            }
+    //}, index*1000);
     
   })
 }
